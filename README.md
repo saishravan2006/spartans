@@ -1,85 +1,130 @@
-﻿# Super Memory - Neuro-Symbolic Self-Evolving Agent
+# Super Memory — Neuro-Symbolic Cognitive Architecture
 
-A hybrid Neuro-Symbolic AI agent that combines Large Language Models with a formal MeTTa Knowledge Graph (AtomSpace) for grounded, auditable, and self-evolving knowledge management.
+Super Memory is an enterprise-grade, hybrid **Neuro-Symbolic Cognitive Agent**. It unites modern Large Language Models (LLMs) with a formal **MeTTa Knowledge Graph (AtomSpace)** and an immutable **SQLite Evidence Ledger**, providing mathematically verifiable deduction, instant non-monotonic belief revision, and zero-hallucination factual grounding.
 
-## Architecture
+---
+
+## 🏛️ System Architecture
 
 ```
-User Input --> Streamlit UI --> NeuroSymbolicAgent
-                                    |
-                    +---------------+---------------+
-                    |               |               |
-              Jev Decision    LLM (OpenAI)    MeTTa Engine
-              (Intent Route)  (Tool Calling)  (AtomSpace)
-                    |               |               |
-                    +-------+-------+       Backward Chainer
-                            |               (Rule Inference)
-                      PersistenceManager
-                      (SQLite Evidence Ledger)
+User Input (Chat / Text Documents)
+       │
+       ▼
+Next.js 16 (Turbopack Frontend) ───[REST API]───► FastAPI Backend (port 8000)
+                                                        │
+                                                        ▼
+                                               NeuroSymbolicAgent
+                                                        │
+                      ┌─────────────────────────────────┴─────────────────────────────────┐
+                      ▼                                                                   ▼
+         TypeSafe Jev Decision API                                             LLM (OpenAI-Compatible)
+    (Intent Routing & Semantic Guards)                                              (Tool Calling)
+                      │                                                                   │
+                      └─────────────────────────────────┬─────────────────────────────────┘
+                                                        │
+                                                        ▼
+                                                MeTTa Engine
+                                           (AtomSpace Hypergraph)
+                                                        │
+                                            ┌───────────┴───────────┐
+                                            ▼                       ▼
+                                   Backward Chaining        Belief Revision
+                                    (Rule Deduction)       (Outdated State Retraction)
+                                            │                       │
+                                            └───────────┬───────────┘
+                                                        │
+                                                        ▼
+                                            SQLite PersistenceManager
+                                            (Immutable Evidence Ledger)
 ```
 
-### Core Components
+---
 
-| Module | Purpose |
-|--------|---------|
-| `core/agent.py` | ReAct-powered conversational agent with tool calling |
-| `core/metta_engine.py` | MeTTa AtomSpace with belief revision, backward chaining, temporal reasoning |
-| `core/persistence.py` | SQLite evidence ledger with historical state tracking |
-| `core/catalogue.py` | Entity catalogue with fuzzy search and disambiguation |
-| `core/jev_adapter.py` | TypeSafe Jev Decision API for intent routing and predicate alignment |
-| `core/clarification.py` | Uncertainty-aware dialogue management for ambiguous inputs |
-| `core/models.py` | Strict dataclass definitions for the agent flow |
-| `app.py` | Streamlit web interface |
+## 🔑 Required API Keys & Why JEV is Essential
 
-### Key Capabilities
-
-1. **Neuro-Symbolic Reasoning**: LLM translates natural language to formal MeTTa S-expressions; symbolic engine performs exact unification and backward chaining
-2. **Belief Revision**: Single-valued predicates automatically retract outdated state when updated
-3. **Backward Chaining**: Full AST-level rule inference with shared variable bindings across conjuncts
-4. **Temporal Reasoning**: `ValidDate`, `Recurrence`, and `Exception` wrappers for date-scoped facts with exception overrides
-5. **Historical Succession**: Permanent SQLite evidence ledger preserves all additions and removals, enabling predecessor/historical queries via `query_history`
-6. **ReAct Cognitive Loop**: Agent follows Reason -> Act -> Observe workflow with structured tool use
-7. **Jev Intent Routing**: TypeSafe AI decision engine for calibrated intent classification and entity disambiguation
-
-## Quick Start
+To run Super Memory, create a `.env` file in the root directory (based on `.env.example`):
 
 ```bash
-# Install dependencies
+# 1. Primary Reasoning LLM (OpenAI-compatible)
+OPENAI_API_KEY=your_openai_or_openrouter_or_asi_key
+OPENAI_BASE_URL=https://api.openai.com/v1   # Or https://llm.c.singularitynet.io/v1 / OpenRouter
+OPENAI_MODEL=gpt-4o-mini                    # Or openai/gpt-oss-20b
+
+# 2. TypeSafe JEV Decision Engine (CRITICAL)
+TYPESAFE_API_KEY=your_typesafe_or_openrouter_key
+TYPESAFE_BASE_URL=https://openrouter.ai/api
+```
+
+### 🧠 Is the JEV Model Compulsory?
+**YES, JEV (`typesafe/jev-1.13`) is an essential pillar of the architecture.**
+
+While conventional chatbots send raw text directly into an LLM and hope for the best, Super Memory operates as a neuro-symbolic engine requiring formal logical constraints:
+1. **Calibrated Intent Routing:** Before any LLM tokens are wasted, JEV deterministically classifies whether user input is a **Fact Assertion (`learn`)**, a **Knowledge Lookup (`query`)**, a **Belief Revision (`contradiction`)**, or an **Ambiguous Query (`clarification`)**.
+2. **Predicate Alignment & Schema Critic:** When new facts are ingested, JEV enforces strict PascalCase relations and prevents predicate duplication or ontology explosion.
+3. **Temporal Violation Guard:** Guarantees that raw dates and times never corrupt the primary relationship graph, mandating structured wrappers (`ValidDate`, `Recurrence`, `Exception`).
+4. **Fallback Safety:** If `TYPESAFE_API_KEY` is temporarily missing, a deterministic regex fallback handles intent routing, but high-precision production alignment requires the JEV model.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Backend Setup (FastAPI & MeTTa)
+
+```bash
+# 1. Clone repository
+git clone https://github.com/your-username/super-memory.git
+cd super-memory
+
+# 2. Create and activate virtual environment
+python -m venv .venv
+# On Windows:
+.\.venv\Scripts\activate
+# On Linux/macOS:
+source .venv/bin/activate
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# Set environment variables in .env
-# OPENAI_API_KEY=your_key
-# OPENAI_BASE_URL=your_endpoint
-# OPENAI_MODEL=your_model
-# TYPESAFE_API_KEY=your_jev_key (optional)
+# 4. Configure environment
+cp .env.example .env
+# Edit .env with your OPENAI_API_KEY and TYPESAFE_API_KEY
 
-# Run the app
-streamlit run app.py
-
-# Run acceptance tests
-python tests/test_acceptance.py
+# 5. Start the FastAPI backend
+python -m uvicorn server:app --host 0.0.0.0 --port 8000 --reload
 ```
+The backend API is now live at `http://localhost:8000`.
 
-## Project Structure
+---
 
+### 2. Frontend Setup (Next.js Dashboard)
+
+```bash
+# In a new terminal, navigate to the frontend directory
+cd frontend
+
+# Install Node dependencies
+npm install
+
+# Start the Next.js Turbopack development server
+npm run dev
 ```
-super memory/
-  app.py                    # Streamlit web interface
-  requirements.txt          # Python dependencies
-  .env                      # API keys (not committed)
-  core/
-    __init__.py
-    agent.py                # NeuroSymbolicAgent with ReAct loop
-    metta_engine.py         # MeTTa engine + backward chainer
-    persistence.py          # SQLite evidence ledger
-    catalogue.py            # Entity catalogue + fuzzy search
-    jev_adapter.py          # TypeSafe Jev Decision API adapter
-    clarification.py        # Disambiguation ticket manager
-    models.py               # Dataclass definitions
-  data/
-    evidence_ledger.sqlite  # Permanent claim store
-    knowledge_base.metta    # Current AtomSpace snapshot
-    audit_log.jsonl         # Append-only audit trail
-  tests/
-    test_acceptance.py      # 19 deterministic acceptance tests
-```
+The interface is now live at `http://localhost:3000`.
+
+---
+
+## 🛠️ Features & Capabilities
+
+- **Live 2D/3D ForceGraph AtomSpace:** Real-time visual representation of all MeTTa nodes, entities, and predicates.
+- **Explainable Trace Inspection:** Clicking any atom in the AtomSpace automatically highlights and scrolls to its original prompt in the chat widget.
+- **Text Document Ingestion:** Attach any `.txt`, `.md`, `.csv`, `.log`, or `.json` document via the pin icon in the chatbot or the hero button. The engine parses the text, extracts factual statements, and grounds them into MeTTa atoms.
+- **Auditable Evidence Ledger:** Immutable SQLite event ledger logging every addition (`ASSERT`) and retracted belief (`RETRACT`) with timestamps and context.
+- **Backward-Chaining Deduction:** Proven logical deduction across multi-hop relations without manual rules.
+- **Streamlit Alternative Interface:** The classic Streamlit GUI remains available via `streamlit run app.py`.
+
+---
+
+## 🔒 Security & Git Hygiene
+
+- **Zero Hardcoded Secrets:** No API keys, passwords, or tokens are committed to this repository.
+- `.env` and `.env.*` files are strictly excluded via `.gitignore`.
+- Database files (`*.sqlite`, `*.db`) and transient logs are ignored. Always use environment variables for key management.
