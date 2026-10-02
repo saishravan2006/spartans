@@ -59,10 +59,15 @@ class MeTTaSyntaxError(Exception):
 SINGLE_VALUED_PREDICATES = {
     "location", "time", "date", "status", "manager", "room", 
     "clearance", "hasclearance", "role", "hasrole",
-    "hascredential", "requirescredential"
+    "hascredential", "requirescredential",
+    "headofdepartment", "president", "director", "chiefaiarchitect",
+    "chair", "lead", "dean", "provost", "head"
 }
 
 
+# V3 NOTE: _MockSpace and _MockMeTTa are intentional dev-mode fallbacks.
+# They activate automatically when the Hyperon package is not installed.
+# In production, install hyperon and these classes are bypassed entirely.
 class _MockSpace:
     def __init__(self) -> None:
         self._atoms: list[str] = []
@@ -349,6 +354,44 @@ class QueryResult:
         )
 
 
+def _tokenize_expr(expr: str) -> list[str]:
+    tokens = []
+    current = ""
+    for ch in expr:
+        if ch in "() \n\t":
+            if current:
+                tokens.append(current)
+                current = ""
+            if ch in "()":
+                tokens.append(ch)
+        else:
+            current += ch
+    if current:
+        tokens.append(current)
+    return tokens
+
+def _parse_ast_expr(tokens: list[str]):
+    if not tokens:
+        return None, []
+    t = tokens.pop(0)
+    if t == "(":
+        lst = []
+        while tokens and tokens[0] != ")":
+            item, tokens = _parse_ast_expr(tokens)
+            lst.append(item)
+        if tokens:
+            tokens.pop(0)
+        return lst, tokens
+    elif t == ")":
+        raise ValueError("Unexpected ')'")
+    else:
+        return t, tokens
+
+def _ast_to_string(ast):
+    if isinstance(ast, str):
+        return ast
+    return "(" + " ".join(_ast_to_string(child) for child in ast) + ")"
+
 @dataclass
 class MeTTaEngine:
     _metta: Any = field(init=False, repr=False)
@@ -426,6 +469,19 @@ class MeTTaEngine:
                             old_atom = f"({pred} {alias} {old_val})"
                             self.remove_atom(old_atom)
                             logger.info("Middleware retracted outdated state: %s", old_atom)
+
+        # AST Rule Normalization: accept both (= Head Body) and (Rule Head Body)
+        rule_target = expr
+        if expr.startswith("(Rule "):
+            # Rewrite (Rule Head Body) -> (= Head Body)
+            inner = expr[6:-1].strip() if expr.endswith(")") else expr[6:].strip()
+            # Split into Head and Body AST
+            tokens_rule = _tokenize_expr(expr)
+            ast_rule, _ = _parse_ast_expr(tokens_rule)
+            if isinstance(ast_rule, list) and len(ast_rule) == 3 and ast_rule[0] == "Rule":
+                rule_target = f"(= {_ast_to_string(ast_rule[1])} {_ast_to_string(ast_rule[2])})"
+                logger.info("Normalized semantic Rule to MeTTa: %s", rule_target)
+                expr = rule_target
 
         # Register rules in Python-side registry (Hyperon v0.2.x strips variables from str())
         if expr.startswith("(= "):
@@ -590,12 +646,15 @@ class MeTTaEngine:
         
         # Facts come from the engine
         for atom in self.get_all_atoms():
-            ast, _ = parse_ast(tokenize(atom))
+            ast, _ = _parse_ast_expr(_tokenize_expr(atom))
             if isinstance(ast, list) and len(ast) == 3 and ast[0] == "=":
                 # Engine might strip variables, so we ignore rules here
                 pass
             elif ast is not None:
                 facts.append(ast)
+                # Unwrap base fact from temporal wrapper (ValidDate BaseFact Date)
+                if isinstance(ast, list) and len(ast) == 3 and ast[0] in ("ValidDate", "Recurrence") and isinstance(ast[1], list):
+                    facts.append(ast[1])
                 
         # Rules come from the Python registry to preserve variables
         for rule in getattr(self, "_rules", []):
@@ -620,7 +679,7 @@ class MeTTaEngine:
             goal_ast = substitute(goal_ast, bindings)
 
             # AND Logic
-            if isinstance(goal_ast, list) and len(goal_ast) > 0 and goal_ast[0] == ',':
+            if isinstance(goal_ast, list) and len(goal_ast) > 0 and goal_ast[0] in (',', 'and'):
                 yield from solve_and(goal_ast[1:], bindings, depth, trace)
                 return
 

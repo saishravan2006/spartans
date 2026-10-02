@@ -1,0 +1,4 @@
+﻿# Keep data folder structure in git without committing data files
+*
+!.gitignore
+!.gitkeep

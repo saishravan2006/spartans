@@ -143,31 +143,8 @@ class PersistenceManager:
         row = cursor.fetchone()
         return row["text"] if row else None
         
-    def record_pending_clarification(self, text: str) -> str:
-        """Records a user input that requires clarification."""
-        c_id = f"clar_{uuid.uuid4().hex[:8]}"
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "INSERT INTO pending_clarifications (id, session_id, original_text, status, timestamp) VALUES (?, ?, ?, ?, ?)",
-            (c_id, self.session_id, text, "pending", time.time())
-        )
-        self._conn.commit()
-        return c_id
 
-    def get_pending_clarification(self) -> dict | None:
-        """Retrieves the most recent pending clarification for this session."""
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT id, original_text FROM pending_clarifications WHERE session_id = ? AND status = 'pending' ORDER BY timestamp DESC LIMIT 1", (self.session_id,))
-        row = cursor.fetchone()
-        if row:
-            return {"id": row["id"], "original_text": row["original_text"]}
-        return None
 
-    def resolve_clarification(self, clar_id: str) -> None:
-        """Marks a clarification as resolved."""
-        cursor = self._conn.cursor()
-        cursor.execute("UPDATE pending_clarifications SET status = 'resolved' WHERE id = ?", (clar_id,))
-        self._conn.commit()
             
     def export_snapshots(self, engine: MeTTaEngine) -> None:
         """Writes the current graph state to flat files for inspection."""
@@ -202,3 +179,40 @@ class PersistenceManager:
                 "diff": row["metta_atom"]
             })
         return list(reversed(results))
+
+    def query_history(self, entity_or_keyword: str = "", predicate: str = "", limit: int = 20) -> list[dict[str, Any]]:
+        """
+        Queries historical claims (both additions and removals/retractions) from the SQLite ledger.
+        Allows looking up who or what previously held a role, historical states, or past changes.
+        """
+        cursor = self._conn.cursor()
+        query = """
+            SELECT c.id, c.utterance_id, c.metta_atom, c.operation, c.status, c.timestamp, u.text as utterance_text
+            FROM claims c
+            LEFT JOIN utterances u ON c.utterance_id = u.id
+            WHERE 1=1
+        """
+        params = []
+        if entity_or_keyword:
+            query += " AND (c.metta_atom LIKE ? OR u.text LIKE ?)"
+            like_pat = f"%{entity_or_keyword}%"
+            params.extend([like_pat, like_pat])
+        if predicate:
+            query += " AND c.metta_atom LIKE ?"
+            params.append(f"%{predicate}%")
+        query += " ORDER BY c.timestamp DESC LIMIT ?"
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        results = []
+        for r in rows:
+            results.append({
+                "claim_id": r["id"],
+                "atom": r["metta_atom"],
+                "operation": r["operation"],
+                "timestamp": r["timestamp"],
+                "context_utterance": r["utterance_text"] or ""
+            })
+        return results
+

@@ -1,9 +1,7 @@
-# ──────────────────────────────────────────────
-# Super Memory · Neuro-Symbolic Self-Evolving Agent
-# ──────────────────────────────────────────────
+﻿# Super Memory - Neuro-Symbolic Self-Evolving Agent
 
-# Core symbolic engine
-hyperon>=0.1.0
+# Core symbolic engine (optional: falls back to mock engine if unavailable)
+# hyperon>=0.1.0
 
 # LLM translation layer
 openai>=1.30.0
@@ -12,6 +10,8 @@ pydantic>=2.7.0
 # UI dashboard
 streamlit>=1.36.0
 
+# TypeSafe Jev Decision API
+requests>=2.31.0
+
 # Utilities
 python-dotenv>=1.0.1
-rich>=13.7.0
